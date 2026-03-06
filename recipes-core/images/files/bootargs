@@ -1,0 +1,1 @@
+mainbootargs=console=ttyS0,115200n8 drm.debug=7 root=/dev/mmcblk0p/${rfspart} ro rootfstype=ext4 rootwait

@@ -1,0 +1,36 @@
+#!/bin/sh
+
+echo "Starting custom initramfs..."
+
+# Mount essential pseudo-filesystems
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+mount -t devtmpfs devtmpfs /dev
+
+# Optional runtime tmpfs
+mount -t tmpfs tmpfs /run
+
+# Bring up network if needed
+udhcpc
+
+# Mount your real root filesystem
+mkdir -p /mnt/root
+mount /dev/mmcblk0p2 /mnt/root
+
+# Move pseudo-filesystems to the new root
+mount --move /proc /mnt/root/proc
+mount --move /sys /mnt/root/sys
+mount --move /dev /mnt/root/dev
+mount --move /run /mnt/root/run
+
+# Prompt user: ENTER to stop boot, otherwise continue in 10 seconds
+echo "Press ENTER within 10 seconds to drop to shell, or boot continues automatically..."
+
+if read -t 10 input; then
+    echo "Dropping to shell..."
+    exec /bin/sh
+else
+    # Timeout → continue boot
+    echo "Continuing boot..."
+    exec switch_root /mnt/root sbin/init
+fi
