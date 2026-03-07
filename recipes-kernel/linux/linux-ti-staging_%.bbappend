@@ -1,37 +1,43 @@
 # meta-simpleaudio/recipes-kernel/linux/linux-ti-staging_%.bbappend
+LICENSE = "CLOSED"
 
 FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
 PACKAGE_ARCH = "${MACHINE_ARCH}"
 
+DEPENDS += "u-boot-tools-native"
+
+# Gebruik de MACHINE naam om bestanden dynamisch te benoemen
+MACHINE_NAME = "${MACHINE}"
+
 # DTS en kernel config fragment
 SRC_URI += " \
-    file://configs/am335x-roomplayer-plus.cfg \
-    file://device-trees/am335x-roomplayer-plus.dts \
-    file://patches/0001-add-roomplayer-plus-dts.patch \
+    file://configs/${MACHINE_NAME}.cfg \
+    file://device-trees/${MACHINE_NAME}.dts \
+    file://patches/0001-add-${MACHINE_NAME}-dts.patch \
     file://patches/0002-davinci-mcasp-clock.patch \
 "
 
-KERNEL_CONFIG_FRAGMENTS += "${WORKDIR}/configs/am335x-roomplayer-plus.cfg"
+KERNEL_CONFIG_FRAGMENTS += "${WORKDIR}/configs/${MACHINE_NAME}.cfg"
 KERNEL_FEATURES += "initramfs"
 INITRAMFS_IMAGE = "simpleaudio-initramfs-image"
-INITRAMFS_IMAGE_NAME = "simpleaudio-initramfs-image-roomplayer-plus.rootfs"
+INITRAMFS_IMAGE_NAME = "simpleaudio-initramfs-image-${MACHINE_NAME}.rootfs"
 
 KERNEL_IMAGETYPE = "uImage"
 
 do_configure:append(){
-    cp ${WORKDIR}/*.dts ${S}/arch/arm/boot/dts/ti/omap
+    cp ${WORKDIR}/device-trees/${MACHINE_NAME}.dts ${S}/arch/arm/boot/dts/ti/omap
 }
 
-do_deploy:append() {
+do_deploy:append(){
     if [ -f ${DEPLOYDIR}/uImage ]; then
         cat ${DEPLOYDIR}/uImage \
-            ${DEPLOYDIR}/am335x-roomplayer-plus.dtb \
-            > ${DEPLOYDIR}/uImage-roomplayer-plus
+            ${DEPLOYDIR}/${MACHINE_NAME}.dtb \
+            > ${DEPLOYDIR}/uImage-${MACHINE_NAME}
     fi
 
-    if [ -f ${DEPLOYDIR}/uImage-initramfs-roomplayer-plus.bin ]; then
-        cat ${DEPLOYDIR}/uImage-initramfs-roomplayer-plus.bin \
-            ${DEPLOYDIR}/am335x-roomplayer-plus.dtb \
-            > ${DEPLOYDIR}/uImage-initramfs-roomplayer-plus
+    if [ -f ${DEPLOYDIR}/uImage-initramfs-${MACHINE_NAME}.bin ]; then
+        cat ${DEPLOYDIR}/uImage-initramfs-${MACHINE_NAME}.bin \
+            ${DEPLOYDIR}/${MACHINE_NAME}.dtb \
+            > ${DEPLOYDIR}/uImage-initramfs-${MACHINE_NAME}
     fi
 }

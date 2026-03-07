@@ -2,35 +2,53 @@
 
 echo "Starting custom initramfs..."
 
-# Mount essential pseudo-filesystems
 mount -t proc proc /proc
 mount -t sysfs sysfs /sys
 mount -t devtmpfs devtmpfs /dev
-
-# Optional runtime tmpfs
 mount -t tmpfs tmpfs /run
 
-# Bring up network if needed
 udhcpc
 
-# Mount your real root filesystem
-mkdir -p /mnt/root
-mount /dev/mmcblk0p2 /mnt/root
+echo "Press ENTER within 10 seconds to drop to shell, otherwise flashing starts..."
+if read -t 10 input; then
+    echo "Dropping to shell..."
+    exec /bin/sh
+fi
 
-# Move pseudo-filesystems to the new root
+mkdir -p /mnt/root
+if ! mount /dev/mmcblk0p2 /mnt/root 2>/dev/null; then
+    echo "ERROR: Could not mount rootfs!"
+    goto_flash=1
+else
+    if [ ! -f /mnt/root/simpleaudio-port-installed ]; then
+        echo "/simpleaudio-hifiberry-installed not found!"
+        goto_flash=1
+    else
+        goto_flash=0
+    fi
+fi
+
+if [ "$goto_flash" -eq 1 ]; then
+
+    echo "Starting flashing mode"
+    IMAGE=/images/rootfs.wic.gz
+    if [ -f $IMAGE ]; then
+        echo "Flashing $IMAGE to /dev/mmcblk0 ..."
+        zcat $IMAGE | dd of=/dev/mmcblk0 bs=4M status=progress conv=fsync
+        sync
+        echo "Flash complete, rebooting..."
+        exec reboot -f
+    else
+        echo "ERROR: Flash image not found!"
+        exec /bin/sh
+    fi
+fi
+
+echo "Rootfs OK, continuing boot..."
+
 mount --move /proc /mnt/root/proc
 mount --move /sys /mnt/root/sys
 mount --move /dev /mnt/root/dev
 mount --move /run /mnt/root/run
 
-# Prompt user: ENTER to stop boot, otherwise continue in 10 seconds
-echo "Press ENTER within 10 seconds to drop to shell, or boot continues automatically..."
-
-if read -t 10 input; then
-    echo "Dropping to shell..."
-    exec /bin/sh
-else
-    # Timeout → continue boot
-    echo "Continuing boot..."
-    exec switch_root /mnt/root sbin/init
-fi
+exec switch_root /mnt/root /sbin/init

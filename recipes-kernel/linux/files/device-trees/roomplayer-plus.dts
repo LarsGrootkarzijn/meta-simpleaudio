@@ -39,7 +39,7 @@
 		pinctrl-single,pins = <AM33XX_IOPAD(0x980, 0x30)>;
 	};
 	
-	i2c0_pins: i2c0_pins {
+	i2c0_pins {
 		pinctrl-single,pins = <
 			AM33XX_IOPAD(0x988, 0x70)
                         AM33XX_IOPAD(0x98c, 0x70)
@@ -236,15 +236,15 @@
 			bitclock-master = <&cpu0>;
 			frame-master = <&cpu0>;
 
-			simple-audio-card,cpu0: cpu {
+			cpu0: cpu {
 				sound-dai = <&mcasp0>;
 			};
 
-			simple-audio-card,codec0: codec@0 {
+			codec0: codec@0 {
 				sound-dai = <&wm8776 0>;
 			};
 
-			simple-audio-card,codec1: codec@1 {
+			codec@1 {
 				sound-dai = <&wm8776 1>;
 			};
 		};

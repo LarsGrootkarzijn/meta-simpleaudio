@@ -1,5 +1,6 @@
 DESCRIPTION = "Minimal initramfs for BeagleBone"
-LICENSE = "MIT"
+LICENSE = "CLOSED"
+
 IMAGE_FSTYPES = "${INITRAMFS_FSTYPES}"
 
 inherit core-image

@@ -6,12 +6,13 @@ SRC_URI = "file://rfspart \
 
 S = "${WORKDIR}"
 
+DEPLOY_DIR_TI = "${TOPDIR}/deploy-ti/images/${MACHINE}"
+
 do_deploy() {
     install -d ${DEPLOY_DIR}/images/${MACHINE}
-    install -m 0644 ${WORKDIR}/rfspart ${DEPLOY_DIR}/images/${MACHINE}/
-    install -m 0644 ${WORKDIR}/bootargs ${DEPLOY_DIR}/images/${MACHINE}/
+    install -m 0644 ${WORKDIR}/rfspart ${DEPLOY_DIR_TI}/
+    install -m 0644 ${WORKDIR}/bootargs ${DEPLOY_DIR_TI}/
 }
 
-# Zorg dat do_deploy wordt uitgevoerd als dependency van do_image
-do_image[dirs] += "${DEPLOY_DIR}/images/${MACHINE}"
+do_image[dirs] += "${DEPLOY_DIR_TI}"
 addtask deploy after do_install before do_package
