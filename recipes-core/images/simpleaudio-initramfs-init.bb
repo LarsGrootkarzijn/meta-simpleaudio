@@ -1,4 +1,4 @@
-DESCRIPTION = "Custom init for initramfs"
+DESCRIPTION = "Custom init for Simpleaudio"
 LICENSE = "CLOSED"
 
 SRC_URI = "file://init"

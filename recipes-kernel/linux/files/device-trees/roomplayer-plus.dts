@@ -42,7 +42,7 @@
 	i2c0_pins {
 		pinctrl-single,pins = <
 			AM33XX_IOPAD(0x988, 0x70)
-                        AM33XX_IOPAD(0x98c, 0x70)
+			AM33XX_IOPAD(0x98c, 0x70)
 		>;
 	};
 	

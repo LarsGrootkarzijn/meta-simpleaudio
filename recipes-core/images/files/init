@@ -1,4 +1,5 @@
 #!/bin/sh
+set -e
 
 echo "Starting custom initramfs..."
 
@@ -7,45 +8,79 @@ mount -t sysfs sysfs /sys
 mount -t devtmpfs devtmpfs /dev
 mount -t tmpfs tmpfs /run
 
-udhcpc
+udhcpc || echo "Warning: DHCP failed, continuing..."
+wait_for_network() {
+    echo "Waiting for network..."
+    for i in $(seq 1 10); do
+        udhcpc && ping -c1 8.8.8.8 >/dev/null 2>&1 && return 0
+        echo "Network not ready, retry $i/10..."
+        sleep 3
+    done
+    echo "ERROR: Network unavailable!"
+    return 1
+}
 
-echo "Press ENTER within 10 seconds to drop to shell, otherwise flashing starts..."
+echo "Press ENTER within 10 seconds to drop to shell, otherwise boot/flash continues..."
 if read -t 10 input; then
     echo "Dropping to shell..."
     exec /bin/sh
 fi
 
 mkdir -p /mnt/root
-if ! mount /dev/mmcblk0p2 /mnt/root 2>/dev/null; then
-    echo "ERROR: Could not mount rootfs!"
+ROOT_DEV="/dev/mmcblk0p2"
+goto_flash=0
+
+if [ ! -b "$ROOT_DEV" ]; then
+    echo "ERROR: Root device $ROOT_DEV missing!"
     goto_flash=1
 else
-    if [ ! -f /mnt/root/simpleaudio-port-installed ]; then
-        echo "/simpleaudio-hifiberry-installed not found!"
+    if ! mount "$ROOT_DEV" /mnt/root 2>/dev/null; then
+        echo "ERROR: Could not mount rootfs!"
         goto_flash=1
-    else
-        goto_flash=0
+    elif [ ! -f /mnt/root/simpleaudio-port-installed ] || [ ! -f /mnt/root/sbin/init ]; then
+        echo "Rootfs invalid or incomplete!"
+        goto_flash=1
     fi
 fi
 
 if [ "$goto_flash" -eq 1 ]; then
+    echo "Starting flashing mode..."
 
-    echo "Starting flashing mode"
-    IMAGE=/images/rootfs.wic.gz
-    if [ -f $IMAGE ]; then
-        echo "Flashing $IMAGE to /dev/mmcblk0 ..."
-        zcat $IMAGE | dd of=/dev/mmcblk0 bs=4M status=progress conv=fsync
-        sync
-        echo "Flash complete, rebooting..."
-        exec reboot -f
-    else
-        echo "ERROR: Flash image not found!"
+    if ! wait_for_network; then
+        echo "Cannot flash without internet, dropping to shell..."
         exec /bin/sh
     fi
+
+    IMAGE_URL="TODO"
+    IMAGE_LOCAL="/images/image.wic.gz"
+    mkdir -p /images
+
+    if [ ! -f "$IMAGE_LOCAL" ]; then
+        echo "Downloading rootfs image..."
+        if ! wget -O "$IMAGE_LOCAL" "$IMAGE_URL"; then
+            echo "ERROR: Failed to download image!"
+            exec /bin/sh
+        fi
+    fi
+
+    FLASH_RETRIES=3
+    for i in $(seq 1 $FLASH_RETRIES); do
+        echo "Flashing attempt $i/$FLASH_RETRIES..."
+        if zcat "$IMAGE_LOCAL" | dd of=/dev/mmcblk0 bs=4M status=progress conv=fsync; then
+            sync
+            echo "Flash complete!"
+            exec reboot -f
+        else
+            echo "Flash failed, retrying..."
+            sleep 2
+        fi
+    done
+
+    echo "ERROR: Flashing failed after $FLASH_RETRIES attempts, dropping to shell..."
+    exec /bin/sh
 fi
 
 echo "Rootfs OK, continuing boot..."
-
 mount --move /proc /mnt/root/proc
 mount --move /sys /mnt/root/sys
 mount --move /dev /mnt/root/dev

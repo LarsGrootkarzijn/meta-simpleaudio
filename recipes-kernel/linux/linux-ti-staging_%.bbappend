@@ -1,4 +1,3 @@
-# meta-simpleaudio/recipes-kernel/linux/linux-ti-staging_%.bbappend
 LICENSE = "CLOSED"
 
 FILESEXTRAPATHS:prepend := "${THISDIR}/files:"
@@ -6,10 +5,8 @@ PACKAGE_ARCH = "${MACHINE_ARCH}"
 
 DEPENDS += "u-boot-tools-native"
 
-# Gebruik de MACHINE naam om bestanden dynamisch te benoemen
 MACHINE_NAME = "${MACHINE}"
 
-# DTS en kernel config fragment
 SRC_URI += " \
     file://configs/${MACHINE_NAME}.cfg \
     file://device-trees/${MACHINE_NAME}.dts \

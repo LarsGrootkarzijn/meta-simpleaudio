@@ -1,4 +1,4 @@
-SUMMARY = "RoomPlayer Plus Custom Image"
+SUMMARY = "Simpleaudio Bootfiles"
 LICENSE = "CLOSED"
 
 SRC_URI = "file://rfspart \
