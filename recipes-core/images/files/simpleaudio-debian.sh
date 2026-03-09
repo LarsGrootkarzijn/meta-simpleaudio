@@ -96,7 +96,7 @@ EOF
     chroot "$WORKDIR/rootfs" apt clean
 
     # Tarball maken
-    tar --numeric-owner -C "$WORKDIR/rootfs" -cf "$OUT" .
+    tar --numeric-owner -C "$WORKDIR/rootfs" -czf "$OUT" .
 
     echo "Clean up"
 

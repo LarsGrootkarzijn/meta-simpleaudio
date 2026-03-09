@@ -3,7 +3,7 @@ LICENSE = "MIT"
 
 inherit image
 
-SRC_URI += "file://debian-${DEBIAN_VERSION}-${MACHINE}.tar.gz"
+SRC_URI += "file://debian-${DEBIAN_RELEASE}-${MACHINE}.tar.gz"
 
 WKS_FILE = "simpleaudio-image.wks"
 
@@ -13,7 +13,7 @@ EXTRA_IMAGE_FEATURES = ""
 
 IMAGE_INSTALL = " \
     kernel-modules \
-    busybox-files-dummy \
+    simpleaudio-gpio-tools \
     simpleaudio-dependencies \
 "
 
@@ -27,7 +27,5 @@ IMAGE_FSTYPES = "wic.gz"
 ROOTFS_PREPROCESS_COMMAND += "install_debian_overlay;"
 
 install_debian_overlay () {
-    echo "Installing Debian overlay"
-
-    tar --numeric-owner --overwrite -xzf ${THISDIR}/files/debian-${DEBIAN_VERSION}-${MACHINE}.tar.gz -C ${IMAGE_ROOTFS}
+    tar --numeric-owner -xzf ${THISDIR}/files/debian-${DEBIAN_RELEASE}-${MACHINE}.tar.gz -C ${IMAGE_ROOTFS}
 }

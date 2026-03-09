@@ -1,0 +1,10 @@
+[Unit]
+Description=Initilizing Simpleaudio GPIO Configuration
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/initgpio
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
