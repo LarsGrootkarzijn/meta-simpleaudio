@@ -10,14 +10,12 @@ WKS_FILE = "simpleaudio-image.wks"
 IMAGE_LINGUAS = ""
 IMAGE_FEATURES = ""
 EXTRA_IMAGE_FEATURES = ""
+PACKAGE_EXCLUDE += "run-postinsts"
 
 IMAGE_INSTALL = " \
     kernel-modules \
-    simpleaudio-gpio-tools \
     simpleaudio-dependencies \
-"
-
-PACKAGE_INSTALL = "${IMAGE_INSTALL}"
+    simpleaudio-gpio-tools"
 
 #Figure out real storage some day
 IMAGE_ROOTFS_SIZE = "3500000"

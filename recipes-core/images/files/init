@@ -1,14 +1,15 @@
 #!/bin/sh
 set -e
-
 echo "Starting custom initramfs..."
 
+# --- basic mounts ---
 mount -t proc proc /proc
 mount -t sysfs sysfs /sys
 mount -t devtmpfs devtmpfs /dev
 mount -t tmpfs tmpfs /run
 
-udhcpc || echo "Warning: DHCP failed, continuing..."
+udhcpc || echo "Warning: DHCP failed"
+
 wait_for_network() {
     echo "Waiting for network..."
     for i in $(seq 1 10); do
@@ -20,55 +21,96 @@ wait_for_network() {
     return 1
 }
 
-echo "Press ENTER within 10 seconds to drop to shell, otherwise boot/flash continues..."
-if read -t 10 input; then
+echo "Press ENTER within 3s to drop to shell..."
+if read -t 3 input; then
     echo "Dropping to shell..."
     exec /bin/sh
 fi
 
-mkdir -p /mnt/root
+mkdir -p /mnt/root /mnt/vfat
 ROOT_DEV="/dev/mmcblk0p2"
+VFAT="/dev/mmcblk0p1"
 goto_flash=0
 
-if [ ! -b "$ROOT_DEV" ]; then
-    echo "ERROR: Root device $ROOT_DEV missing!"
+# --- validate partitions ---
+if [ ! -b "$VFAT" ]; then
+    echo "ERROR: VFAT device missing"
     goto_flash=1
-else
-    if ! mount "$ROOT_DEV" /mnt/root 2>/dev/null; then
-        echo "ERROR: Could not mount rootfs!"
-        goto_flash=1
-    elif [ ! -f /mnt/root/simpleaudio-port-installed ] || [ ! -f /mnt/root/sbin/init ]; then
-        echo "Rootfs invalid or incomplete!"
-        goto_flash=1
-    fi
+elif [ ! -b "$ROOT_DEV" ]; then
+    echo "ERROR: Root device missing"
+    goto_flash=1
+elif ! mount "$ROOT_DEV" /mnt/root 2>/dev/null; then
+    echo "ERROR: Could not mount rootfs"
+    goto_flash=1
+elif ! mount -t vfat "$VFAT" /mnt/vfat 2>/dev/null; then
+    echo "ERROR: Could not mount vfat"
+    goto_flash=1
+elif [ ! -f /mnt/root/simpleaudio-port-installed ] || [ ! -f /mnt/root/sbin/init ]; then
+    echo "Rootfs invalid!"
+    goto_flash=1
 fi
 
-if [ "$goto_flash" -eq 1 ]; then
-    echo "Starting flashing mode..."
+#CHANGE TO PROD WHEN DONE
 
+# --- stage ---
+if [ -f "/mnt/vfat/stage" ]; then
+    STAGE=$(tr -d ' \n\r' < /mnt/vfat/stage)
+else
+    echo "Warning: stage missing, defaulting to prod"
+    STAGE="dev"
+fi
+
+
+#CHANGE TO PROD WHEN DONE
+case "$STAGE" in
+    prod|dev) ;;
+    *) echo "Invalid stage, defaulting to prod"; STAGE="dev";;
+esac
+
+# --- machine detection ---
+ARCH=$(uname -m)
+case "$ARCH" in
+    armv7*|armv7l)
+        MACHINE="roomplayer-plus"
+        ;;
+    armv5*|armv5tel)
+        MACHINE="roomplayer-i-ii"
+        ;;
+    *)
+        echo "Unsupported arch: $ARCH"
+        goto_flash=1
+        ;;
+esac
+
+# --- flashing ---
+IMAGE_FILE="simpleaudio-image-${MACHINE}.rootfs.wic.gz"
+IMAGE_URL="http://${STAGE}.larsgrootkarzijn.nl/${IMAGE_FILE}"
+IMAGE_LOCAL="/images/${IMAGE_FILE}"
+mkdir -p /images
+
+if [ "$goto_flash" -eq 1 ]; then
+    echo "Starting flash..."
     if ! wait_for_network; then
-        echo "Cannot flash without internet, dropping to shell..."
+        echo "Cannot flash, dropping to shell..."
         exec /bin/sh
     fi
 
-    IMAGE_URL="TODO"
-    IMAGE_LOCAL="/images/image.wic.gz"
-    mkdir -p /images
-
     if [ ! -f "$IMAGE_LOCAL" ]; then
-        echo "Downloading rootfs image..."
-        if ! wget -O "$IMAGE_LOCAL" "$IMAGE_URL"; then
-            echo "ERROR: Failed to download image!"
-            exec /bin/sh
-        fi
+        echo "Downloading $IMAGE_FILE..."
+        wget -O "$IMAGE_LOCAL" "$IMAGE_URL" || { echo "Download failed"; exec /bin/sh; }
     fi
+
+    # DO CHECKSUM SOME DAY
 
     FLASH_RETRIES=3
     for i in $(seq 1 $FLASH_RETRIES); do
+        umount /mnt/root /mnt/vfat 2>/dev/null || true
+        sync
         echo "Flashing attempt $i/$FLASH_RETRIES..."
-        if zcat "$IMAGE_LOCAL" | dd of=/dev/mmcblk0 bs=4M status=progress conv=fsync; then
+        #zcat /images/simpleaudio-image-roomplayer-plus.rootfs.wic.gz | dd of=/dev/mmcblk0 bs=4M
+        if zcat "$IMAGE_LOCAL" | dd of=/dev/mmcblk0 bs=4M; then
             sync
-            echo "Flash complete!"
+            echo "Flash complete, rebooting..."
             exec reboot -f
         else
             echo "Flash failed, retrying..."
@@ -76,14 +118,17 @@ if [ "$goto_flash" -eq 1 ]; then
         fi
     done
 
-    echo "ERROR: Flashing failed after $FLASH_RETRIES attempts, dropping to shell..."
+    echo "ERROR: Flash failed after retries, dropping to shell..."
     exec /bin/sh
 fi
 
+# --- normal boot ---
 echo "Rootfs OK, continuing boot..."
 mount --move /proc /mnt/root/proc
 mount --move /sys /mnt/root/sys
 mount --move /dev /mnt/root/dev
 mount --move /run /mnt/root/run
+mount --move /mnt/vfat /mnt/root/boot
 
+# switch naar echte rootfs
 exec switch_root /mnt/root /sbin/init

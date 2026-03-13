@@ -1,8 +1,6 @@
 SUMMARY = "Simpleaudio GPIO tools"
 LICENSE = "CLOSED"
 
-inherit systemd
-
 SRC_URI = "file://getgpio \
            file://setgpio \
            file://initgpio \
@@ -10,15 +8,17 @@ SRC_URI = "file://getgpio \
 
 S = "${WORKDIR}"
 
-
 do_install() {
     install -d ${D}${bindir}
     install -m 0755 ${WORKDIR}/setgpio ${D}${bindir}
     install -m 0755 ${WORKDIR}/getgpio ${D}${bindir}
     install -m 0755 ${WORKDIR}/initgpio ${D}${bindir}
 
-    install -d ${D}${systemd_system_unitdir}
-    install -m 0644 ${WORKDIR}/simpleaudio-gpio-init.service ${D}${systemd_system_unitdir}/simpleaudio-gpio-init.service
+    install -d ${D}/lib/systemd/system/
+    install -d ${D}/etc/systemd/system/multi-user.target.wants/
+    install -m 0644 ${THISDIR}/files/simpleaudio-gpio-init.service ${D}/lib/systemd/system/simpleaudio-gpio-init.service
+    ln -sf ../../../../lib/systemd/system/simpleaudio-gpio-init.service \
+        ${D}/etc/systemd/system/multi-user.target.wants/simpleaudio-gpio-init.service
 }
 
 SYSTEMD_SERVICE:${PN} = "simpleaudio-gpio-init.service"

@@ -1,4 +1,3 @@
-
 /*
  * Copyright (C) 2012 Texas Instruments Incorporated - http://www.ti.com/
  *
@@ -56,9 +55,7 @@
 };
 
 &uart1 {
-    pinctrl-names = "default";
-    pinctrl-0 = <&uart1_pins>;
-    status = "okay";
+	status = "okay";
 };
 
 &mcasp0	{
@@ -95,7 +92,6 @@
 		ngpios = <8>;
 		gpio-controller;
 		compatible = "nxp,pca9554";
-		gpio-line-names = "gpio491", "gpio492", "gpio493", "gpio494", "gpio495", "gpio496", "gpio497", "gpio498";
 	};
 
 	pca_1: pca9554@22 {

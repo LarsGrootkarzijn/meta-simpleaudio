@@ -7,7 +7,7 @@ MACHINE_PATH="$(dirname "$SCRIPT_DIR")/../../conf/machine"
 
 ROOT_PASSWORD=SambaPig
 
-PACKAGES="systemd-sysv,ca-certificates,apt,netbase,iproute2,iputils-ping,openssh-server,alsa-utils,mpd,mpc"
+PACKAGES="gpiod,udev,systemd-timesyncd,systemd-resolved,systemd-sysv,ca-certificates,apt,netbase,iproute2,iputils-ping,openssh-server,alsa-utils"
 
 if [[ $EUID -ne 0 ]]; then
     echo "This script must be run as root."
@@ -93,14 +93,43 @@ EOF
     chroot "$WORKDIR/rootfs" systemctl enable ssh
 
     # Cache schoonmaken
-    chroot "$WORKDIR/rootfs" apt clean
+    #chroot "$WORKDIR/rootfs" apt clean
+
+    chroot "$WORKDIR/rootfs" sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config
+    
+    chroot "$WORKDIR/rootfs" systemctl enable systemd-resolved
+    chroot "$WORKDIR/rootfs" systemctl enable systemd-networkd
+
+    chroot "$WORKDIR/rootfs" systemctl enable systemd-timesyncd
+
+    # machine-id resetten
+    chroot "$WORKDIR/rootfs" truncate -s 0 /etc/machine-id
+
+    # apt lists verwijderen
+    #chroot "$WORKDIR/rootfs" rm -rf /var/lib/apt/lists/*
+
+    umount -l "$WORKDIR/rootfs/dev/pts" 2>/dev/null || true
+    umount -l "$WORKDIR/rootfs/dev" 2>/dev/null || true
+    umount -l "$WORKDIR/rootfs/proc" 2>/dev/null || true
+    umount -l "$WORKDIR/rootfs/sys" 2>/dev/null || true
+
+    for dir in dev proc sys run tmp var/tmp; do
+        mkdir -p "$WORKDIR/rootfs/$dir"   # zorg dat de dir bestaat
+        rm -rf "$WORKDIR/rootfs/$dir"/*   # leeg de inhoud
+    done
 
     # Tarball maken
-    tar --numeric-owner -C "$WORKDIR/rootfs" -czf "$OUT" .
+    tar --numeric-owner \
+        --exclude=./var/log \
+        --exclude=./var/cache/apt \
+        --exclude=./var/lib/apt/lists \
+        --exclude=./lost+found \
+        -C "$WORKDIR/rootfs" \
+        -czf "$OUT" .
 
     echo "Clean up"
 
-    sudo rm -r $WORKDIR
+    rm -rf "$WORKDIR"
 
     echo
     echo "Build complete: $OUT"
