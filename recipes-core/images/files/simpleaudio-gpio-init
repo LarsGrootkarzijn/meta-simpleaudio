@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 #Config done as followed:
 #/usr/bin/setgpio GPIONUMBER INPUT(0)/OUTPUT(1) FALSE(0)/TRUE(1)
@@ -19,7 +19,7 @@ gpioset -t0 red-led=0
 
 #Enable green LED
 #First disable blinkgpio green LED
-gpioset -t0 green-blink-led=0
+gpioset -t0 green-led-blink=0
 gpioset -t0 green-led=1
 
 #Green led blinking
@@ -33,10 +33,10 @@ gpioset -t0 green-led=1
 gpioset -t0 line-out=1
 
 #Enable headphone out
-gpio-set -t0 headphone=1
+gpioset -t0 headphone=1
 
 #Enable amplifier
-gpio-set -t0 amplifier=1
+gpioset -t0 amplifier=1
 
 ###############################################################
 
