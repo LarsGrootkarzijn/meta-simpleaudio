@@ -92,6 +92,8 @@
 		ngpios = <8>;
 		gpio-controller;
 		compatible = "nxp,pca9554";
+		gpio-line-names = "amplifier-in", "unknown", 
+							"headphone-in", "line-front-in", "unknown", "unknown", "unknown", "unknown";
 	};
 
 	pca_1: pca9554@22 {
@@ -100,13 +102,18 @@
 		#gpio-cells = <2>;
 		gpio-controller;
 		compatible = "nxp,pca9554";
+		gpio-line-names = "headphone", "amplifier", "red-led", "green-led-blink", "green-led", 
+							"ethernet-phy", "unknown", "unknown";
 	};
+
 	pca_2: pca9554@20 {
 		reg = <0x20>;
 		ngpios = <8>;
 		#gpio-cells = <2>;
 		gpio-controller;
 		compatible = "nxp,pca9554";
+		gpio-line-names = "side-button", "unknown", 
+							"white-led", "soundcard-clk-1", "soundcard-clk-2", "soundcard", "unknown", "line-out";
 	};
 
 	baseboard_eeprom: baseboard_eeprom@50 {

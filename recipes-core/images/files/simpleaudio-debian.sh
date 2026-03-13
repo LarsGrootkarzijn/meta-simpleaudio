@@ -72,15 +72,15 @@ for file in "$MACHINE_PATH"/*; do
 
 
     tee "$WORKDIR/rootfs/etc/apt/apt.conf.d/01norecommend" >/dev/null <<EOF
-                APT::Install-Recommends "0";
-                APT::Install-Suggests "0";
+APT::Install-Recommends "0";
+APT::Install-Suggests "0";
 EOF
 
     tee "$WORKDIR/rootfs/etc/dpkg/dpkg.cfg.d/01_nodoc" >/dev/null <<EOF
-                    path-exclude=/usr/share/doc/*
-                    path-exclude=/usr/share/man/*
-                    path-exclude=/usr/share/locale/*
-                    path-exclude=/usr/share/info/*
+path-exclude=/usr/share/doc/*
+path-exclude=/usr/share/man/*
+path-exclude=/usr/share/locale/*
+path-exclude=/usr/share/info/*
 EOF
 
     sed -i 's/#Storage=.*/Storage=volatile/' "$WORKDIR/rootfs/etc/systemd/journald.conf"

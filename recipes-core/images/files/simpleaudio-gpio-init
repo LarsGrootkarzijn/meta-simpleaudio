@@ -6,24 +6,21 @@
 #
 ################################Soundcard init############################
 #Enable soundcard
-/usr/bin/setgpio 493 1 1
 
-#These are used by the kernel and should not be set from userspace.
-#/usr/bin/setgpio 492 1 0
-#/usr/bin/setgpio 491 1 0
+gpioset -t0 soundcard=1
 
 ################################LEDs######################################
 
 #Set white LED brightness
-/usr/bin/setgpio 490 1 0
 
+gpioset -t0 white-led=0
 #Disable red LED
-/usr/bin/setgpio 498 1 0
+gpioset -t0 red-led=0
 
 #Enable green LED
 #First disable blinkgpio green LED
-/usr/bin/setgpio 499 1 0
-/usr/bin/setgpio 500 1 1
+gpioset -t0 green-blink-led=0
+gpioset -t0 green-led=1
 
 #Green led blinking
 #/usr/bin/setgpio 499 1 1
@@ -33,13 +30,13 @@
 
 ########################Configure Sound I/O#####################
 #enable line-out
-/usr/bin/setgpio 495 1 0
+gpioset -t0 line-out=1
 
 #Enable headphone out
-/usr/bin/setgpio 496 1 0
+gpio-set -t0 headphone=1
 
 #Enable amplifier
-/usr/bin/setgpio 497 1 0
+gpio-set -t0 amplifier=1
 
 ###############################################################
 
@@ -47,14 +44,20 @@
 
 #The following GPIOs are used as inputs.
 
-#True if player with amplifier
-/usr/bin/setgpio 504 0 0
-#Headphone plugged in
-/usr/bin/setgpio 506 0 0
+#True if player with amplifier - only naming given, nothing to be set.
+#If board with amplifier
+
+#amplifier-in
+
+#headphone-in
+
 #Line front plugged in
-/usr/bin/setgpio 507 0 0
+
+#line-front-in
+
 #Side button
-/usr/bin/setgpio 488 0 0
+
+#side-button
 
 
 ####################Misc#####################################
