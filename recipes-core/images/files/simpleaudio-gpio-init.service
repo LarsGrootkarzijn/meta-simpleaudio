@@ -3,7 +3,7 @@ Description=Initilizing Simpleaudio GPIO Configuration
 After=network.target
 
 [Service]
-ExecStart=/usr/bin/initgpio
+ExecStart=/usr/bin/simpleaudio-gpio-init
 Restart=on-failure
 
 [Install]
