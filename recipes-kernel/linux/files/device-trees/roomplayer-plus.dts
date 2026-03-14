@@ -15,12 +15,13 @@
 	compatible = "ti,am33xx";	
 	
 	aliases {
-		mmc0 = &mmc2;
-                mmc1 = &mmc1;
+			mmc0 = &mmc2;
+			mmc1 = &mmc1;
         };
 };
 
 &am33xx_pinmux {
+
 	mcasp0_pins: mcasp0_pins {
 		pinctrl-single,pins = <
 			AM33XX_IOPAD(0x990, PIN_OUTPUT | MUX_MODE0)
@@ -92,8 +93,8 @@
 		ngpios = <8>;
 		gpio-controller;
 		compatible = "nxp,pca9554";
-		gpio-line-names = "amplifier-in", "unknown", 
-							"headphone-in", "line-front-in", "unknown", "unknown", "unknown", "unknown";
+		gpio-line-names = "amplifier-in", "", 
+							"headphone-in", "line-front-in", "", "", "", "";
 	};
 
 	pca_1: pca9554@22 {
@@ -103,7 +104,7 @@
 		gpio-controller;
 		compatible = "nxp,pca9554";
 		gpio-line-names = "headphone", "amplifier", "red-led", "green-led-blink", "green-led", 
-							"ethernet-phy", "unknown", "unknown";
+							"ethernet-phy", "", "";
 	};
 
 	pca_2: pca9554@20 {
@@ -112,8 +113,8 @@
 		#gpio-cells = <2>;
 		gpio-controller;
 		compatible = "nxp,pca9554";
-		gpio-line-names = "side-button", "unknown", 
-							"white-led", "soundcard-clk-1", "soundcard-clk-2", "soundcard", "unknown", "line-out";
+		gpio-line-names = "side-button", "", 
+							"white-led", "soundcard-clk-1", "soundcard-clk-2", "soundcard", "", "line-out";
 	};
 
 	baseboard_eeprom: baseboard_eeprom@50 {
@@ -229,6 +230,10 @@
         };
 };
 
+&gpio2 {
+	gpio-line-names = "", "reset-button";
+};
+
 / {
 	sound {
 		compatible = "simple-audio-card";
@@ -251,5 +256,5 @@
 				sound-dai = <&wm8776 1>;
 			};
 		};
-	};				
+	};
 };
