@@ -7,7 +7,7 @@ This document describes the GPIO configuration script and pin usage.
 | gpiochip1 | 0          | Input  | Reset button front   | 0             | reset-button    | gpio-32-63      |
 
 
-| GPIO Chip | GPIO (0-7) | Type   | Description / Standard | Default Value | Kernel Name | GPIO Chip Kernel |
+| GPIO Chip | GPIO | Type   | Description / Standard | Default Value | Kernel Name | GPIO Chip Kernel |
 |-----------|------------|--------|----------------------|---------------|------------|----------------|
 | gpiochip6 | 0          | Input  | Button on the side   | 0             | side-button    | pca9554@20      |
 | gpiochip6 | 1          | Input  | Unknown                | 0             | unknown    | pca9554@20      |
