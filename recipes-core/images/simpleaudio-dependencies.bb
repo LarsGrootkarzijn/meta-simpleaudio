@@ -11,11 +11,9 @@ SRC_URI = "git://github.com/LarsGrootkarzijn/meta-simpleaudio;branch=scarthgap;n
 
 do_install() {
     # Basis directories
-    install -d ${D}/bin
     install -d ${D}/etc
     install -d ${D}${sysconfdir}/systemd/network
 
-    ln -sf /bin/true ${D}/bin/sh
 
     install -m 0444 ${WORKDIR}/simpleaudio-port-installed ${D}/simpleaudio-port-installed
 
@@ -25,4 +23,4 @@ do_install() {
     install -m 0644 ${WORKDIR}/00-default.network ${D}/etc/systemd/network/00-default.network
 }
 
-FILES:${PN} = "/simpleaudio-port-installed /bin/sh /etc/hostname etc/systemd/network/00-default.network"
+FILES:${PN} = "/simpleaudio-port-installed /etc/hostname etc/systemd/network/00-default.network"

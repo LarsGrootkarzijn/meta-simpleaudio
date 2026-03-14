@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 #Config done as followed:
 #/usr/bin/setgpio GPIONUMBER INPUT(0)/OUTPUT(1) FALSE(0)/TRUE(1)

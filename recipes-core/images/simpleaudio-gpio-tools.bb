@@ -6,6 +6,8 @@ SRC_URI = "file://simpleaudio-gpio-init \
 
 S = "${WORKDIR}"
 
+RPROVIDES:${PN} += "/bin/sh"
+
 do_install() {
     install -d ${D}${bindir}
     install -m 0755 ${WORKDIR}/simpleaudio-gpio-init ${D}${bindir}

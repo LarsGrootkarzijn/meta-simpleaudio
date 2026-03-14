@@ -10,7 +10,7 @@ WKS_FILE = "simpleaudio-image.wks"
 IMAGE_LINGUAS = ""
 IMAGE_FEATURES = ""
 EXTRA_IMAGE_FEATURES = ""
-PACKAGE_EXCLUDE += "run-postinsts"
+PACKAGE_EXCLUDE += "run-postinsts base-files"
 
 IMAGE_INSTALL = " \
     kernel-modules \

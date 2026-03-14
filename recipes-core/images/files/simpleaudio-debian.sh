@@ -89,11 +89,13 @@ EOF
     # Root wachtwoord
     echo "root:${ROOT_PASSWORD}" | chroot "$WORKDIR/rootfs" chpasswd
 
+    chroot "$WORKDIR/rootfs" rm /etc/hostname
     # SSH enable
+    chroot "$WORKDIR/rootfs" rm /etc/ssh/ssh_host_*
     chroot "$WORKDIR/rootfs" systemctl enable ssh
 
     # Cache schoonmaken
-    #chroot "$WORKDIR/rootfs" apt clean
+    chroot "$WORKDIR/rootfs" apt clean
 
     chroot "$WORKDIR/rootfs" sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config
     
@@ -105,8 +107,6 @@ EOF
     # machine-id resetten
     chroot "$WORKDIR/rootfs" truncate -s 0 /etc/machine-id
 
-    # apt lists verwijderen
-    #chroot "$WORKDIR/rootfs" rm -rf /var/lib/apt/lists/*
 
     umount -l "$WORKDIR/rootfs/dev/pts" 2>/dev/null || true
     umount -l "$WORKDIR/rootfs/dev" 2>/dev/null || true
@@ -114,8 +114,8 @@ EOF
     umount -l "$WORKDIR/rootfs/sys" 2>/dev/null || true
 
     for dir in dev proc sys run tmp var/tmp; do
-        mkdir -p "$WORKDIR/rootfs/$dir"   # zorg dat de dir bestaat
-        rm -rf "$WORKDIR/rootfs/$dir"/*   # leeg de inhoud
+        mkdir -p "$WORKDIR/rootfs/$dir"
+        rm -rf "$WORKDIR/rootfs/$dir"/*
     done
 
     # Tarball maken
