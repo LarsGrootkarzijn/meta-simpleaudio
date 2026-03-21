@@ -22,7 +22,7 @@ INITRAMFS_IMAGE_NAME = "simpleaudio-initramfs-image-${MACHINE_NAME}.rootfs"
 KERNEL_IMAGETYPE = "uImage"
 
 do_configure:append(){
-    cp ${WORKDIR}/device-trees/${MACHINE_NAME}.dts ${S}/arch/arm/boot/dts/ti/omap
+    cp ${WORKDIR}/device-trees/${MACHINE_NAME}.dts ${S}/arch/arm/boot/dts/ti/${DTB_SUBDIR}
 }
 
 do_deploy:append(){

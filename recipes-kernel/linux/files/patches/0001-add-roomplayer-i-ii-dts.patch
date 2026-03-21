@@ -1,0 +1,9 @@
+--- a/arch/arm/boot/dts/ti/davinci/Makefile	2026-03-14 14:30:28.378509852 +0100
++++ b/arch/arm/boot/dts/ti/davinci/Makefile	2026-03-21 15:36:19.163770246 +0100
+@@ -1,5 +1,6 @@
+ # SPDX-License-Identifier: GPL-2.0
+ dtb-$(CONFIG_ARCH_DAVINCI) += \
++   roomplayer-i-ii.dtb \
+ 	da850-lcdk.dtb \
+ 	da850-enbw-cmc.dtb \
+ 	da850-evm.dtb \
