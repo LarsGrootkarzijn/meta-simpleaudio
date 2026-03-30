@@ -6,9 +6,22 @@ echo "Starting custom initramfs..."
 mount -t proc proc /proc
 mount -t sysfs sysfs /sys
 mount -t devtmpfs devtmpfs /dev
+
+mkdir -p /dev/pts
+
+mount -t devpts devpts /dev/pts
 mount -t tmpfs tmpfs /run
 
+HOSTNAME=$(cat /etc/hostname | tr -d ' \n\r')
+echo "$HOSTNAME" > /proc/sys/kernel/hostname
+export HOSTNAME
+
 udhcpc || echo "Warning: DHCP failed"
+
+mkdir -p /var/run/dropbear
+dropbear -R -E -F &
+
+echo "Dropbear SSH server started"
 
 wait_for_network() {
     echo "Waiting for network..."
@@ -24,7 +37,7 @@ wait_for_network() {
 echo "Press ENTER within 3s to drop to shell..."
 if read -t 3 input; then
     echo "Dropping to shell..."
-    exec /bin/sh
+    exec /sbin/getty -L ttyS0 115200 vt100
 fi
 
 mkdir -p /mnt/root /mnt/vfat
@@ -92,12 +105,12 @@ if [ "$goto_flash" -eq 1 ]; then
     echo "Starting flash..."
     if ! wait_for_network; then
         echo "Cannot flash, dropping to shell..."
-        exec /bin/sh
+        exec /sbin/getty -L ttyS0 115200 vt100
     fi
 
     if [ ! -f "$IMAGE_LOCAL" ]; then
         echo "Downloading $IMAGE_FILE..."
-        wget -O "$IMAGE_LOCAL" "$IMAGE_URL" || { echo "Download failed"; exec /bin/sh; }
+        wget -O "$IMAGE_LOCAL" "$IMAGE_URL" || { echo "Download failed"; exec /sbin/getty -L ttyS0 115200 vt100; }
     fi
 
     # DO CHECKSUM SOME DAY
@@ -119,7 +132,7 @@ if [ "$goto_flash" -eq 1 ]; then
     done
 
     echo "ERROR: Flash failed after retries, dropping to shell..."
-    exec /bin/sh
+    exec /sbin/getty -L ttyS0 115200 vt100
 fi
 
 # --- normal boot ---
@@ -130,5 +143,4 @@ mount --move /dev /mnt/root/dev
 mount --move /run /mnt/root/run
 mount --move /mnt/vfat /mnt/root/boot
 
-# switch naar echte rootfs
 exec switch_root /mnt/root /sbin/init
