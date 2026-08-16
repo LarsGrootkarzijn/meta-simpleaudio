@@ -4,7 +4,7 @@
  #include <linux/math64.h>
  #include <linux/bitmap.h>
  #include <linux/gpio/driver.h>
-+#include <linux/gpio.h>
++#include <linux/gpio/consumer.h>
  
  #include <sound/asoundef.h>
  #include <sound/core.h>
@@ -17,82 +17,83 @@
  #include "edma-pcm.h"
  #include "sdma-pcm.h"
  #include "udma-pcm.h"
-@@ -1415,6 +1416,48 @@
- 	return fifo_use / substream->runtime->channels;
- }
+@@ -41,6 +42,14 @@
  
-+void set_gpio_output(int gpio, int value)
-+{
-+    int ret;
-+
-+    // Request the GPIO
-+    ret = gpio_request(gpio, "gpio_output");
-+    if (ret) {
-+        pr_err("Failed to request GPIO %d, error %d\n", gpio, ret);
-+        return;
-+    }
-+
-+    // Set the GPIO direction to output
-+    ret = gpio_direction_output(gpio, value);
-+    if (ret) {
-+        pr_err("Failed to set GPIO %d direction to output, error %d\n", gpio, ret);
-+        gpio_free(gpio);  // Free GPIO before returning
-+        return;
-+    }
-+
-+    // Set the GPIO value (HIGH = 1, LOW = 0)
-+    // gpio_set_value(gpio, value);  // Uncomment if needed
-+
-+    pr_info("GPIO %d set to %s\n", gpio, value ? "HIGH" : "LOW");
-+
-+    // Free the GPIO after use
-+    gpio_free(gpio);
-+}
-+
+ #define MCASP_MAX_AFIFO_DEPTH	64
+ 
 +#define SND_11K 11289600
 +#define SND_8K  24576000
-+
-+#define AUDIO_GPIO_1 491
-+#define AUDIO_GPIO_2 492
-+
-+#define GPIO_LOW  0
-+#define GPIO_HIGH 1
 +
 +#define MODULO_11K 44100
 +#define MODULO_8K  16000
 +
 +#define CLK_ID_SA 0
 +
+ #ifdef CONFIG_PM
+ static u32 context_regs[] = {
+ 	DAVINCI_MCASP_TXFMCTL_REG,
+@@ -133,6 +142,9 @@
+ 
+ 	struct davinci_mcasp_ruledata ruledata[2];
+ 	struct snd_pcm_hw_constraint_list chconstr[2];
++
++	struct gpio_desc *soundcard_clk_1;
++	struct gpio_desc *soundcard_clk_2;
+ };
+ 
+ static inline void mcasp_set_bits(struct davinci_mcasp *mcasp, u32 offset,
+@@ -1415,6 +1427,24 @@
+ 	return fifo_use / substream->runtime->channels;
+ }
+ 
++static void set_gpio_output(struct gpio_desc *gpio, int value)
++{
++	int ret;
++
++	if (!gpio)
++		return;
++
++	ret = gpiod_direction_output(gpio, value);
++	if (ret) {
++		pr_err("Failed to set GPIO direction to output, error %d\n", ret);
++		return;
++	}
++
++	gpiod_set_value_cansleep(gpio, value);
++
++	pr_info("GPIO set to %s\n", value ? "HIGH" : "LOW");
++}
++
  static int davinci_mcasp_hw_params(struct snd_pcm_substream *substream,
  					struct snd_pcm_hw_params *params,
  					struct snd_soc_dai *cpu_dai)
-@@ -1424,7 +1467,24 @@
+@@ -1424,7 +1454,24 @@
  	int channels = params_channels(params);
  	int period_size = params_period_size(params);
  	int ret;
 -	unsigned int sysclk_freq = mcasp_get_sysclk_freq(mcasp, substream->stream);
 +	int rate = params_rate(params);
 +
-+	if(rate % MODULO_11K == 0)
++	if (rate % MODULO_11K == 0)
 +	{
 +		davinci_mcasp_set_sysclk(cpu_dai, CLK_ID_SA, SND_11K, SND_SOC_CLOCK_IN);
 +		printk(KERN_ALERT "Rate to divide 11025hz!\n");
 +
-+		set_gpio_output(AUDIO_GPIO_1, GPIO_LOW);
-+		set_gpio_output(AUDIO_GPIO_2, GPIO_LOW);
++		gpiod_set_value_cansleep(mcasp->soundcard_clk_1, 0);
++		gpiod_set_value_cansleep(mcasp->soundcard_clk_2, 0);
 +	}
 +	else if (rate % MODULO_8K == 0)
 +	{
 +		davinci_mcasp_set_sysclk(cpu_dai, CLK_ID_SA, SND_8K, SND_SOC_CLOCK_IN);
 +		printk(KERN_ALERT "Rate to divide 8000hz!\n");
 +
-+		set_gpio_output(AUDIO_GPIO_1, GPIO_HIGH);
-+                set_gpio_output(AUDIO_GPIO_2, GPIO_HIGH);
++		gpiod_set_value_cansleep(mcasp->soundcard_clk_1, 1);
++		gpiod_set_value_cansleep(mcasp->soundcard_clk_2, 1);
 +	}
  
  	switch (params_format(params)) {
  	case SNDRV_PCM_FORMAT_U8:
-@@ -1461,6 +1521,7 @@
+@@ -1461,6 +1508,7 @@
  	if (ret)
  		return ret;
  
@@ -100,32 +101,199 @@
  	/*
  	 * If mcasp is BCLK master, and a BCLK divider was not provided by
  	 * the machine driver, we need to calculate the ratio.
-@@ -1770,7 +1831,27 @@
+@@ -1746,13 +1794,16 @@
+ 		if (mcasp->serial_dir[i] == dir)
+ 			max_channels++;
+ 	}
++
+ 	ruledata->serializers = max_channels;
+ 	ruledata->mcasp = mcasp;
+ 	ruledata->stream = substream->stream;
++
+ 	max_channels *= tdm_slots;
++
+ 	/*
+ 	 * If the already active stream has less channels than the calculated
+-	 * limit based on the seirializers * tdm_slots, and only one serializer
++	 * limit based on the serializers * tdm_slots, and only one serializer
+ 	 * is in use we need to use that as a constraint for the second stream.
+ 	 * Otherwise (first stream or less allowed channels or more than one
+ 	 * serializer in use) we use the calculated constraint.
+@@ -1764,26 +1815,32 @@
+ 	    ruledata->serializers == 1 &&
+ 	    !mcasp->async_mode)
+ 		max_channels = mcasp->channels;
++
+ 	/*
+-	 * But we can always allow channels upto the amount of
++	 * But we can always allow channels up to the amount of
+ 	 * the available tdm_slots.
  	 */
  	if (max_channels < tdm_slots)
  		max_channels = tdm_slots;
+ 
+-	snd_pcm_hw_constraint_minmax(substream->runtime,
+-				     SNDRV_PCM_HW_PARAM_CHANNELS,
+-				     0, max_channels);
 -
-+	
-+    {
-+        static const unsigned int supported_rates[] = {
-+            44100, 48000,
-+            88200, 96000,
-+            176400, 192000
-+        };
-+        static const struct snd_pcm_hw_constraint_list supported_rates_list = {
-+            .count = ARRAY_SIZE(supported_rates),
-+            .list = supported_rates,
-+            .mask = 0,
-+        };
+-	snd_pcm_hw_constraint_list(substream->runtime,
+-				   0, SNDRV_PCM_HW_PARAM_CHANNELS,
+-				   &mcasp->chconstr[substream->stream]);
++	ret = snd_pcm_hw_constraint_minmax(substream->runtime,
++					   SNDRV_PCM_HW_PARAM_CHANNELS,
++					   0, max_channels);
++	if (ret)
++		return ret;
 +
-+        snd_pcm_hw_constraint_list(substream->runtime,
-+                                   SNDRV_PCM_HW_PARAM_RATE,
-+                                   0,
-+                                   &supported_rates_list);
-+    }
-+	
-+	return 0;
++	ret = snd_pcm_hw_constraint_list(substream->runtime,
++					 0,
++					 SNDRV_PCM_HW_PARAM_CHANNELS,
++					 &mcasp->chconstr[substream->stream]);
++	if (ret)
++		return ret;
+ 
++	/*
++	 * Only allow formats which require the same amount of bits on
++	 * the bus as the currently running stream to ensure sync mode.
++	 */
+ 	if (mcasp->max_format_width && !mcasp->async_mode) {
+-		/*
+-		 * Only allow formats which require same amount of bits on the
+-		 * bus as the currently running stream to ensure sync mode
+-		 */
+ 		ret = snd_pcm_hw_rule_add(substream->runtime, 0,
+ 					  SNDRV_PCM_HW_PARAM_FORMAT,
+ 					  davinci_mcasp_hw_rule_format_width,
+@@ -1792,7 +1849,9 @@
+ 		if (ret)
+ 			return ret;
+ 	} else if (mcasp_get_slot_width(mcasp, substream->stream)) {
+-		/* Only allow formats require <= slot_width bits on the bus */
++		/*
++		 * Only allow formats requiring <= slot_width bits on the bus.
++		 */
+ 		ret = snd_pcm_hw_rule_add(substream->runtime, 0,
+ 					  SNDRV_PCM_HW_PARAM_FORMAT,
+ 					  davinci_mcasp_hw_rule_slot_width,
+@@ -1803,18 +1862,57 @@
+ 	}
+ 
+ 	/*
+-	 * If we rely on implicit BCLK divider setting we should
+-	 * set constraints based on what we can provide.
++	 * The hardware can switch between two independent clock families:
++	 *
++	 *  44.1 kHz family:
++	 *      44.1 kHz  -> 11.2896 MHz
++	 *      88.2 kHz  -> 11.2896 MHz
++	 *      176.4 kHz -> 11.2896 MHz
++	 *
++	 *  48 kHz family:
++	 *      48 kHz  -> 24.576 MHz
++	 *      96 kHz  -> 24.576 MHz
++	 *      192 kHz -> 24.576 MHz
++	 *
++	 * Do NOT use davinci_mcasp_hw_rule_rate() here because that
++	 * rule assumes one fixed sysclk and would remove one of the
++	 * two clock families.
+ 	 */
+-	if (mcasp->bclk_master && mcasp_get_bclk_div(mcasp, substream->stream) == 0 &&
+-	    mcasp_get_sysclk_freq(mcasp, substream->stream)) {
+-		ret = snd_pcm_hw_rule_add(substream->runtime, 0,
+-					  SNDRV_PCM_HW_PARAM_RATE,
+-					  davinci_mcasp_hw_rule_rate,
+-					  ruledata,
+-					  SNDRV_PCM_HW_PARAM_FORMAT, -1);
++	if (mcasp->bclk_master &&
++	    mcasp_get_bclk_div(mcasp, substream->stream) == 0) {
 +
- 	snd_pcm_hw_constraint_minmax(substream->runtime,
- 				     SNDRV_PCM_HW_PARAM_CHANNELS,
- 				     0, max_channels);
++		static const unsigned int supported_rates[] = {
++			44100, 48000,
++			88200, 96000,
++			176400, 192000
++		};
++
++		static const struct snd_pcm_hw_constraint_list rate_list = {
++			.count = ARRAY_SIZE(supported_rates),
++			.list = supported_rates,
++			.mask = 0,
++		};
++
++		dev_info(cpu_dai->dev,
++			 "McASP: enabling dual clock-family rates\n");
++
++		dev_info(cpu_dai->dev,
++			 "McASP: 44.1-family: 44100 88200 176400 Hz\n");
++
++		dev_info(cpu_dai->dev,
++			 "McASP: 48-family: 48000 96000 192000 Hz\n");
++
++		ret = snd_pcm_hw_constraint_list(substream->runtime,
++						 SNDRV_PCM_HW_PARAM_RATE,
++						 0,
++						 &rate_list);
+ 		if (ret)
+ 			return ret;
++
++		/*
++		 * Keep the normal FORMAT rule. This rule does not select
++		 * the sample-rate clock family.
++		 */
+ 		ret = snd_pcm_hw_rule_add(substream->runtime, 0,
+ 					  SNDRV_PCM_HW_PARAM_FORMAT,
+ 					  davinci_mcasp_hw_rule_format,
+@@ -1827,10 +1925,14 @@
+ 	numevt = (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) ?
+ 			 &mcasp->txnumevt :
+ 			 &mcasp->rxnumevt;
+-	snd_pcm_hw_rule_add(substream->runtime, 0,
+-			    SNDRV_PCM_HW_PARAM_PERIOD_SIZE,
+-			    davinci_mcasp_hw_rule_min_periodsize, numevt,
+-			    SNDRV_PCM_HW_PARAM_PERIOD_SIZE, -1);
++
++	ret = snd_pcm_hw_rule_add(substream->runtime, 0,
++				  SNDRV_PCM_HW_PARAM_PERIOD_SIZE,
++				  davinci_mcasp_hw_rule_min_periodsize,
++				  numevt,
++				  SNDRV_PCM_HW_PARAM_PERIOD_SIZE, -1);
++	if (ret)
++		return ret;
+ 
+ 	return 0;
+ }
+@@ -2535,16 +2637,30 @@
+ 	int irq;
+ 	int ret;
+ 
+-	if (!pdev->dev.platform_data && !pdev->dev.of_node) {
+-		dev_err(&pdev->dev, "No platform data supplied\n");
+-		return -EINVAL;
+-	}
+-
+ 	mcasp = devm_kzalloc(&pdev->dev, sizeof(struct davinci_mcasp),
+ 			   GFP_KERNEL);
+ 	if (!mcasp)
+ 		return	-ENOMEM;
+ 
++	mcasp->soundcard_clk_1 = devm_gpiod_get(&pdev->dev, "soundcard-clk-1", GPIOD_OUT_LOW);
++
++	if (IS_ERR(mcasp->soundcard_clk_1)) {
++		dev_err(&pdev->dev, "Failed to get soundcard-clk-1 GPIO\n");
++		return PTR_ERR(mcasp->soundcard_clk_1);
++	}
++
++	mcasp->soundcard_clk_2 = devm_gpiod_get(&pdev->dev, "soundcard-clk-2", GPIOD_OUT_LOW);
++
++	if (IS_ERR(mcasp->soundcard_clk_2)) {
++		dev_err(&pdev->dev, "Failed to get soundcard-clk-2 GPIO\n");
++		return PTR_ERR(mcasp->soundcard_clk_2);
++	}
++
++	if (!pdev->dev.platform_data && !pdev->dev.of_node) {
++		dev_err(&pdev->dev, "No platform data supplied\n");
++		return -EINVAL;
++	}
++
+ 	mem = platform_get_resource_byname(pdev, IORESOURCE_MEM, "mpu");
+ 	if (!mem) {
+ 		dev_warn(&pdev->dev,

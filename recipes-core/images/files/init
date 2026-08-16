@@ -20,6 +20,7 @@ udhcpc || echo "Warning: DHCP failed"
 
 mkdir -p /var/run/dropbear
 dropbear -R -E -F &
+DROPBEAR_PID=$!
 
 echo "Dropbear SSH server started"
 
@@ -91,13 +92,13 @@ case "$ARCH" in
         ;;
     *)
         echo "Unsupported arch: $ARCH"
-        goto_flash=1
+        exit 1;
         ;;
 esac
 
 # --- flashing ---
 IMAGE_FILE="simpleaudio-image-${MACHINE}.rootfs.wic.gz"
-IMAGE_URL="http://${STAGE}.larsgrootkarzijn.nl/${IMAGE_FILE}"
+IMAGE_URL="https://repo.grootkarzijn.com/${STAGE}/yocto/${MACHINE}/latest/${IMAGE_FILE}"
 IMAGE_LOCAL="/images/${IMAGE_FILE}"
 mkdir -p /images
 
@@ -120,7 +121,7 @@ if [ "$goto_flash" -eq 1 ]; then
         umount /mnt/root /mnt/vfat 2>/dev/null || true
         sync
         echo "Flashing attempt $i/$FLASH_RETRIES..."
-        #zcat /images/simpleaudio-image-roomplayer-plus.rootfs.wic.gz | dd of=/dev/mmcblk0 bs=4M
+
         if zcat "$IMAGE_LOCAL" | dd of=/dev/mmcblk0 bs=4M; then
             sync
             echo "Flash complete, rebooting..."
@@ -134,6 +135,10 @@ if [ "$goto_flash" -eq 1 ]; then
     echo "ERROR: Flash failed after retries, dropping to shell..."
     exec /sbin/getty -L ttyS0 115200 vt100
 fi
+
+echo "Stopping initramfs SSH..."
+kill "$DROPBEAR_PID" 2>/dev/null || true
+wait "$DROPBEAR_PID" 2>/dev/null || true
 
 # --- normal boot ---
 echo "Rootfs OK, continuing boot..."

@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# CONFIG
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MACHINE_PATH="$(dirname "$SCRIPT_DIR")/../../conf/machine"
 
-ROOT_PASSWORD=SambaPig
+PASSWORD=SambaPig
 
-PACKAGES="gpiod,udev,systemd-timesyncd,systemd-resolved,systemd-sysv,ca-certificates,apt,netbase,iproute2,iputils-ping,openssh-server,alsa-utils"
+PACKAGES="nano,sudo,gpiod,udev,systemd-timesyncd,systemd-resolved,systemd-sysv,ca-certificates,apt,netbase,iproute2,iputils-ping,openssh-server,alsa-utils"
 
 if [[ $EUID -ne 0 ]]; then
     echo "This script must be run as root."
@@ -18,6 +17,15 @@ fi
 echo "== Installing build dependencies =="
 apt-get update
 apt-get install -y mmdebstrap squashfs-tools
+
+REPO_KEY="$SCRIPT_DIR/repo-key.asc"
+
+if [[ ! -f "$REPO_KEY" ]]; then
+    echo "== Downloading custom repository key =="
+    curl -fsSL \
+        https://repo.grootkarzijn.com/repo-key.asc \
+        -o "$REPO_KEY"
+fi
 
 for file in "$MACHINE_PATH"/*; do
     [[ -f "$file" ]] || continue
@@ -70,60 +78,74 @@ for file in "$MACHINE_PATH"/*; do
       $WORKDIR/rootfs \
       $DEBIAN_MIRROR
 
+    install -Dm644 "$REPO_KEY" "$WORKDIR/rootfs/usr/share/keyrings/grootkarzijn-archive-keyring.asc"
 
-    tee "$WORKDIR/rootfs/etc/apt/apt.conf.d/01norecommend" >/dev/null <<EOF
-APT::Install-Recommends "0";
-APT::Install-Suggests "0";
+    cat > "$WORKDIR/rootfs/etc/apt/sources.list.d/grootkarzijn.sources" <<EOF
+Types: deb
+URIs: https://repo.grootkarzijn.com/dev/debian
+Suites: trixie
+Components: main
+Signed-By: /usr/share/keyrings/grootkarzijn-archive-keyring.asc
 EOF
 
-    tee "$WORKDIR/rootfs/etc/dpkg/dpkg.cfg.d/01_nodoc" >/dev/null <<EOF
-path-exclude=/usr/share/doc/*
-path-exclude=/usr/share/man/*
-path-exclude=/usr/share/locale/*
-path-exclude=/usr/share/info/*
-EOF
 
-    sed -i 's/#Storage=.*/Storage=volatile/' "$WORKDIR/rootfs/etc/systemd/journald.conf"
-    sed -i 's/#RuntimeMaxUse=.*/RuntimeMaxUse=16M/' "$WORKDIR/rootfs/etc/systemd/journald.conf"
+    echo "root:${PASSWORD}" | chroot "$WORKDIR/rootfs" chpasswd
 
-    # Root wachtwoord
-    echo "root:${ROOT_PASSWORD}" | chroot "$WORKDIR/rootfs" chpasswd
+    chroot "$WORKDIR/rootfs" useradd \
+        --create-home \
+        --shell /bin/bash \
+        hifiberry
 
+    echo "hifiberry:${PASSWORD}" | chroot "$WORKDIR/rootfs" chpasswd
+
+    chroot "$WORKDIR/rootfs" usermod -aG sudo hifiberry
+    chroot "$WORKDIR/rootfs" usermod -aG audio hifiberry
+
+    printf '%s\n' "hifiberry" > "$WORKDIR/rootfs/etc/hifiberry.user"
+    
     chroot "$WORKDIR/rootfs" rm /etc/hostname
-    # SSH enable
-    chroot "$WORKDIR/rootfs" rm /etc/ssh/ssh_host_*
-    chroot "$WORKDIR/rootfs" systemctl enable ssh
+    chroot "$WORKDIR/rootfs" rm -f /etc/ssh/ssh_host_*
 
-    # Cache schoonmaken
     chroot "$WORKDIR/rootfs" apt clean
 
     chroot "$WORKDIR/rootfs" sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config
     
-    chroot "$WORKDIR/rootfs" systemctl enable systemd-resolved
-    chroot "$WORKDIR/rootfs" systemctl enable systemd-networkd
+    systemctl --root="$WORKDIR/rootfs" enable ssh
+    systemctl --root="$WORKDIR/rootfs" enable systemd-networkd
 
-    chroot "$WORKDIR/rootfs" systemctl enable systemd-timesyncd
+    rm -f "$WORKDIR/rootfs/etc/resolv.conf"
 
-    # machine-id resetten
+    ln -s /run/systemd/resolve/stub-resolv.conf "$WORKDIR/rootfs/etc/resolv.conf"
+
+    systemctl --root="$WORKDIR/rootfs" enable systemd-resolved
+    systemctl --root="$WORKDIR/rootfs" enable systemd-timesyncd
+
     chroot "$WORKDIR/rootfs" truncate -s 0 /etc/machine-id
 
+    for mountpoint in \
+        "$WORKDIR/rootfs/dev/pts" \
+        "$WORKDIR/rootfs/dev" \
+        "$WORKDIR/rootfs/proc" \
+        "$WORKDIR/rootfs/sys" \
+        "$WORKDIR/rootfs/run"; do
 
-    umount -l "$WORKDIR/rootfs/dev/pts" 2>/dev/null || true
-    umount -l "$WORKDIR/rootfs/dev" 2>/dev/null || true
-    umount -l "$WORKDIR/rootfs/proc" 2>/dev/null || true
-    umount -l "$WORKDIR/rootfs/sys" 2>/dev/null || true
-
-    for dir in dev proc sys run tmp var/tmp; do
-        mkdir -p "$WORKDIR/rootfs/$dir"
-        rm -rf "$WORKDIR/rootfs/$dir"/*
+        if mountpoint -q "$mountpoint" 2>/dev/null; then
+            umount -l "$mountpoint" || true
+        fi
     done
 
-    # Tarball maken
+    rm -rf "$WORKDIR/rootfs/run/"*
+    rm -rf "$WORKDIR/rootfs/tmp/"*
+    rm -rf "$WORKDIR/rootfs/var/tmp/"*
+
+    mkdir -p "$WORKDIR/rootfs/run" \
+        "$WORKDIR/rootfs/tmp" \
+        "$WORKDIR/rootfs/var/tmp"
+
+    chmod 1777 "$WORKDIR/rootfs/tmp" \
+        "$WORKDIR/rootfs/var/tmp"
+
     tar --numeric-owner \
-        --exclude=./var/log \
-        --exclude=./var/cache/apt \
-        --exclude=./var/lib/apt/lists \
-        --exclude=./lost+found \
         -C "$WORKDIR/rootfs" \
         -czf "$OUT" .
 
@@ -134,3 +156,6 @@ EOF
     echo
     echo "Build complete: $OUT"
 done
+
+
+sudo systemctl disable ble-provisioning.service

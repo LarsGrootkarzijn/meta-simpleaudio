@@ -14,7 +14,6 @@ IMAGE_INSTALL = " \
     monkey \
 "
 
-#printf "%q" $(mkpasswd -m sha256crypt SambaPig)
 ROOT_PASSWORD="\$5\$zd4n0aKOcAmpDc1M\$t6NtybMUpF5frpxXroo6XdDM9KOXTxFgmUxGWPUUWKA"
 
 EXTRA_USERS_PARAMS = "\

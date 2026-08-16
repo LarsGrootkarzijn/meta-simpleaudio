@@ -75,6 +75,9 @@
 	tdm-slots-rx = <4>;
 	op-mode = <0>;
 	status = "okay";
+
+	soundcard-clk-1-gpios = <&pca_2 3 GPIO_ACTIVE_HIGH>;
+	soundcard-clk-2-gpios = <&pca_2 4 GPIO_ACTIVE_HIGH>;
 };
 
 &i2c0 {
@@ -239,22 +242,36 @@
 / {
 	sound {
 		compatible = "simple-audio-card";
-		simple-audio-card,name = "Roomplayer Plus Audio Card";			
+		simple-audio-card,name = "Roomplayer Plus Audio Card";
 
 		simple-audio-card,dai-link@0 {
+			reg = <0>;
 			format = "i2s";
-			bitclock-master = <&cpu0>;
-			frame-master = <&cpu0>;
+			bitclock-master = <&cpu_playback>;
+			frame-master = <&cpu_playback>;
 
-			cpu0: cpu {
+			cpu_playback: cpu {
 				sound-dai = <&mcasp0>;
+				system-clock-frequency = <24576000>;
 			};
 
-			codec0: codec@0 {
+			codec_playback: codec {
 				sound-dai = <&wm8776 0>;
 			};
+		};
 
-			codec@1 {
+		simple-audio-card,dai-link@1 {
+			reg = <1>;
+			format = "i2s";
+			bitclock-master = <&cpu_capture>;
+			frame-master = <&cpu_capture>;
+
+			cpu_capture: cpu {
+				sound-dai = <&mcasp0>;
+				system-clock-frequency = <24576000>;
+			};
+
+			codec_capture: codec {
 				sound-dai = <&wm8776 1>;
 			};
 		};
