@@ -1,3 +1,4 @@
 *.tar.gz
 meta-simpleaudio/recipes-core/images/files/build-rootfs-roomplayer-i-ii/
 meta-simpleaudio/recipes-core/images/files/build-rootfs-roomplayer-plus/
+*.asc
